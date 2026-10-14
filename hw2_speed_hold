@@ -1,0 +1,259 @@
+----------------------------------------------------------------------------------
+-- Module Name: hw2 - Behavioral
+-- Description: 呼吸燈 (PWM 漸亮漸暗)
+--
+-- 架構 :
+--   FSM_top      : 狀態 DKing(變暗中) / BRing(變亮中)，Moore
+--   Upper_bound  : FSM 的 Actions，輸出 upbnd1 / upbnd2 (恆有 upbnd1 + upbnd2 = MAX)
+--   HW1          : counter1(數亮, pwm=1) 與 counter2(數暗, pwm=0) 輪流計數
+--   PWM_count    : 數 PWM 週期，滿 1/30 秒產生 tick 給 FSM
+--   Tcount       : 即 MAX_VAL (解析度 RES_BITS 可設定)
+--   Input_sync   : [新增] speed_sel / hold 兩個外部輸入的同步器
+--
+-- 設計規則:
+--   1. upbnd 只在「PWM 週期結束」那個 clock 更新 -> 週期中途上限不會變，不閃爍
+--   2. 一律使用 numeric_std (unsigned)，不要再引用 std_logic_unsigned
+--   3. 每個 signal 只被一個 process 驅動
+--   4. rst 低態有效 (與舊程式一致)
+--   5. [新增] 外部輸入先經兩級暫存器同步，再當 enable 使用，不當 clock
+--
+-- [新增] 功能:
+--   speed_sel : 速度檔位，每個 tick 增減的階數 "00"=1 "01"=2 "10"=4 "11"=8
+--               每階時間仍 >= 1/30 秒，只是一次跳多階
+--               呼吸週期 T ~ 2*(MAX+1) / (30 * 階數)
+--   hold      : '1' 時暫停，亮度凍結 (tick 被遮蔽)；'0' 時繼續
+--
+-- 修改處皆以 [新增] 標註，其餘與原版相同
+----------------------------------------------------------------------------------
+library IEEE;
+use IEEE.std_logic_1164.all;
+use IEEE.numeric_std.all;
+
+entity hw2 is
+    Generic (
+        RES_BITS    : positive := 8;            -- 亮度解析度 (Tcount / MAX 的 bit 數)
+        CLK_FREQ_HZ : positive := 100_000_000   -- 板子 clock 頻率
+    );
+    Port ( clk : in  STD_LOGIC;
+           rst : in  STD_LOGIC;                 -- 低態有效
+           speed_sel : in  STD_LOGIC_VECTOR(1 downto 0);  -- [新增] 速度檔位
+           hold      : in  STD_LOGIC;                     -- [新增] 暫停 (高態有效)
+           pwm : out STD_LOGIC);
+end hw2;
+
+architecture Behavioral of hw2 is
+
+    ------------------------------------------------------------------
+    -- 型別與常數
+    ------------------------------------------------------------------
+    type STATE_TYPE is (DKing, BRing);          -- 變暗中 / 變亮中
+    type PHASE_TYPE is (PH_HIGH, PH_LOW);       -- HW1: 輪到 counter1 / counter2
+
+    -- Tcount: 亮度總階數 MAX = 2^RES_BITS - 1
+    constant MAX_VAL      : unsigned(RES_BITS-1 downto 0) := (others => '1');
+
+    -- 每一階至少維持 1/30 秒，換算成「要數幾個 PWM 週期」
+    -- 一個 PWM 週期約 MAX 個 clock
+    constant STEP_PERIODS : positive :=
+        CLK_FREQ_HZ / 30 / (2**RES_BITS - 1) + 1;
+
+    ------------------------------------------------------------------
+    -- 訊號
+    ------------------------------------------------------------------
+    signal state      : STATE_TYPE;
+    signal phase      : PHASE_TYPE;
+
+    signal upbnd1     : unsigned(RES_BITS-1 downto 0);  -- 亮的計數上限
+    signal upbnd2     : unsigned(RES_BITS-1 downto 0);  -- 暗的計數上限
+
+    signal cnt1       : unsigned(RES_BITS-1 downto 0);  -- counter1
+    signal cnt2       : unsigned(RES_BITS-1 downto 0);  -- counter2
+    signal last1      : std_logic;                      -- counter1 數到最後一拍
+    signal last2      : std_logic;                      -- counter2 數到最後一拍
+
+    signal period_end : std_logic;                      -- HW1 -> PWM_count: 一個 PWM 週期結束
+    signal pwm_cnt    : integer range 0 to STEP_PERIODS-1;
+    signal tick       : std_logic;                      -- PWM_count -> FSM/Upper_bound: 滿 1/30 秒
+
+    signal pwm_r      : std_logic;
+
+    -- [新增] 外部輸入同步 (兩級暫存器) 與每個 tick 的階數
+    signal hold_m     : std_logic;
+    signal hold_s     : std_logic;
+    signal sel_m      : std_logic_vector(1 downto 0);
+    signal sel_s      : std_logic_vector(1 downto 0);
+    signal step       : unsigned(RES_BITS-1 downto 0);  -- 每個 tick 增減的階數 1/2/4/8
+
+begin
+
+    -- [新增] step 需要放得下 8，所以 RES_BITS 至少 4
+    assert RES_BITS >= 4
+        report "RES_BITS must be >= 4 (speed step 8 needs 4 bits)"
+        severity failure;
+
+    ------------------------------------------------------------------
+    -- 組合訊號 (純 concurrent，不放進 process)
+    ------------------------------------------------------------------
+    -- cnt 最大只會到 MAX-1，所以 cnt + 1 不會溢位
+    last1 <= '1' when (cnt1 + 1) >= upbnd1 else '0';
+    last2 <= '1' when (cnt2 + 1) >= upbnd2 else '0';
+
+    -- 一個 PWM 週期 = 亮phase + 暗phase，於暗 phase 最後一拍結束
+    period_end <= '1' when (phase = PH_LOW and last2 = '1') else '0';
+
+    -- [修改] 加上 hold_s = '0'：暫停時 tick 被遮蔽，upbnd 與 state 都不動
+    tick <= '1' when (period_end = '1' and pwm_cnt = STEP_PERIODS-1
+                      and hold_s = '0') else '0';
+
+    -- [新增] 速度檔位 -> 每個 tick 的階數 (1,2,4,8)
+    step <= shift_left(to_unsigned(1, RES_BITS), to_integer(unsigned(sel_s)));
+
+    pwm <= pwm_r;
+
+    ------------------------------------------------------------------
+    -- [新增] Input_sync : 外部輸入同步，避免亞穩態
+    -- 預設 (reset) 為最慢檔、不暫停
+    ------------------------------------------------------------------
+    Input_sync : process(clk, rst)
+    begin
+        if rst = '0' then
+            hold_m <= '0';
+            hold_s <= '0';
+            sel_m  <= (others => '0');
+            sel_s  <= (others => '0');
+        elsif rising_edge(clk) then
+            hold_m <= hold;
+            hold_s <= hold_m;
+            sel_m  <= speed_sel;
+            sel_s  <= sel_m;
+        end if;
+    end process Input_sync;
+
+    ------------------------------------------------------------------
+    -- FSM_top : 狀態轉換 (只在 tick 時判斷)
+    -- 到達最暗/最亮後，多停一階(至少 1/30 秒)再反向
+    ------------------------------------------------------------------
+    FSM_top : process(clk, rst)
+    begin
+        if rst = '0' then
+            state <= DKing;                         -- RESET -> 變暗中
+        elsif rising_edge(clk) then
+            if tick = '1' then
+                case state is
+                    when DKing =>
+                        if upbnd1 = 0 then          -- 已最暗
+                            state <= BRing;
+                        end if;
+                    when BRing =>
+                        if upbnd2 = 0 then          -- 已最亮
+                            state <= DKing;
+                        end if;
+                end case;
+            end if;
+        end if;
+    end process FSM_top;
+
+    ------------------------------------------------------------------
+    -- Upper_bound : FSM 的 Actions (Moore: 依 state 決定增減)
+    -- DKing : upbnd1 -= step, upbnd2 += step
+    -- BRing : upbnd1 += step, upbnd2 -= step
+    -- [修改] 原本 +-1，現在 +-step；不足 step 時直接夾到極值，
+    --        所以不會下溢，且 upbnd1 + upbnd2 仍恆等於 MAX
+    ------------------------------------------------------------------
+    Upper_bound : process(clk, rst)
+    begin
+        if rst = '0' then
+            upbnd1 <= MAX_VAL;                      -- 從最亮開始變暗
+            upbnd2 <= (others => '0');
+        elsif rising_edge(clk) then
+            if tick = '1' then
+                case state is
+                    when DKing =>
+                        if upbnd1 > step then
+                            upbnd1 <= upbnd1 - step;
+                            upbnd2 <= upbnd2 + step;
+                        else                        -- 到最暗
+                            upbnd1 <= (others => '0');
+                            upbnd2 <= MAX_VAL;
+                        end if;
+                    when BRing =>
+                        if upbnd2 > step then
+                            upbnd1 <= upbnd1 + step;
+                            upbnd2 <= upbnd2 - step;
+                        else                        -- 到最亮
+                            upbnd1 <= MAX_VAL;
+                            upbnd2 <= (others => '0');
+                        end if;
+                end case;
+            end if;
+        end if;
+    end process Upper_bound;
+
+    ------------------------------------------------------------------
+    -- HW1 : counter1 / counter2 輪流計數
+    -- 上限為 0 的 phase 仍佔 1 個 clock，但 pwm 輸出會被遮蔽(見下)，
+    -- 所以最亮/最暗時 pwm 恆為 1/0，不會有錯誤脈衝
+    ------------------------------------------------------------------
+    HW1 : process(clk, rst)
+    begin
+        if rst = '0' then
+            phase <= PH_HIGH;
+            cnt1  <= (others => '0');
+            cnt2  <= (others => '0');
+        elsif rising_edge(clk) then
+            case phase is
+                when PH_HIGH =>                     -- counter1 計數 (pwm = 1)
+                    if last1 = '1' then
+                        cnt1  <= (others => '0');
+                        phase <= PH_LOW;
+                    else
+                        cnt1  <= cnt1 + 1;
+                    end if;
+                when PH_LOW =>                      -- counter2 計數 (pwm = 0)
+                    if last2 = '1' then
+                        cnt2  <= (others => '0');
+                        phase <= PH_HIGH;
+                    else
+                        cnt2  <= cnt2 + 1;
+                    end if;
+            end case;
+        end if;
+    end process HW1;
+
+    ------------------------------------------------------------------
+    -- PWM 輸出 (暫存器輸出，無毛刺)
+    -- 亮phase 且 upbnd1>0 -> 1 ; 暗phase 且 upbnd2=0 (最亮) -> 1 ; 其餘 0
+    ------------------------------------------------------------------
+    PWM_out : process(clk, rst)
+    begin
+        if rst = '0' then
+            pwm_r <= '0';
+        elsif rising_edge(clk) then
+            if (phase = PH_HIGH and upbnd1 /= 0) or
+               (phase = PH_LOW  and upbnd2 = 0) then
+                pwm_r <= '1';
+            else
+                pwm_r <= '0';
+            end if;
+        end if;
+    end process PWM_out;
+
+    ------------------------------------------------------------------
+    -- PWM_count : 數 PWM 週期，滿 STEP_PERIODS 個 (>= 1/30 秒) 由 tick 通知
+    ------------------------------------------------------------------
+    PWM_count : process(clk, rst)
+    begin   
+        if rst = '0' then
+            pwm_cnt <= 0;
+        elsif rising_edge(clk) then
+            if period_end = '1' then
+                if pwm_cnt = STEP_PERIODS-1 then
+                    pwm_cnt <= 0;
+                else
+                    pwm_cnt <= pwm_cnt + 1;
+                end if;
+            end if;
+        end if;
+    end process PWM_count;
+
+end Behavioral;
