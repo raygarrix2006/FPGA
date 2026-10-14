@@ -1,0 +1,61 @@
+library IEEE;
+use IEEE.std_logic_1164.all;
+
+entity tb_hw2 is
+end tb_hw2;
+
+architecture sim of tb_hw2 is
+
+    -- 模擬用縮小參數: MAX = 31, 一階 = 2 個 PWM 週期 (約 62 clock)
+    -- RES_BITS 必須 >= 4 (速度檔位最大一次跳 8 階)
+    constant RES_BITS_T    : positive := 5;
+    constant CLK_FREQ_T    : positive := 930;
+    constant CLK_PERIOD    : time := 10 ns;
+
+    signal clk       : std_logic := '0';
+    signal rst       : std_logic := '0';                      -- 低態有效
+    signal speed_sel : std_logic_vector(1 downto 0) := "00";
+    signal hold      : std_logic := '0';
+    signal pwm       : std_logic;
+
+begin
+
+    DUT : entity work.hw2
+        generic map (
+            RES_BITS    => RES_BITS_T,
+            CLK_FREQ_HZ => CLK_FREQ_T
+        )
+        port map (
+            clk       => clk,
+            rst       => rst,
+            speed_sel => speed_sel,
+            hold      => hold,
+            pwm       => pwm
+        );
+
+    clk <= not clk after CLK_PERIOD / 2;
+
+    stim : process
+    begin
+        rst <= '0';
+        wait for 5 * CLK_PERIOD;
+        rst <= '1';
+
+        speed_sel <= "00";                  -- 每 tick 1 階
+        wait for 1500 * CLK_PERIOD;
+        speed_sel <= "01";                  -- 每 tick 2 階
+        wait for 1000 * CLK_PERIOD;
+        speed_sel <= "10";                  -- 每 tick 4 階
+        wait for 1000 * CLK_PERIOD;
+        speed_sel <= "11";                  -- 每 tick 8 階
+        wait for 1000 * CLK_PERIOD;
+
+        hold <= '1';                        -- 暫停: upbnd 應凍結
+        wait for 800 * CLK_PERIOD;
+        hold <= '0';                        -- 繼續
+        wait for 2000 * CLK_PERIOD;
+
+        assert false report "simulation finished" severity failure;
+    end process stim;
+
+end sim;
