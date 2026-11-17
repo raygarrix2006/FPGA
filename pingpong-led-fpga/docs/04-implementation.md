@@ -1,47 +1,42 @@
-# 04 程式實作（Implementation）
+# 04 程式實作
 
-## 4.1 現行來源與版本
+## 原始碼組織
 
-基準為 pingpong_20261111.7z 中 2026-11-11 的實驗室成品。src/pingpong.vhd、src/btn_cond.vhd 由 CP950 轉為 UTF-8，僅兩個 assert 訊息改為英文；遊戲邏輯未重構。WIN_SCORE 採實驗室的 1..9，預設 5。constraints/pingpong.xdc 直接沿用成品。
-
-| 目錄／檔案 | 用途 |
+| 檔案 | 用途 |
 |---|---|
-| src/ | 當前可建置的兩份 RTL；各訊號單一驅動來源 |
-| constraints/pingpong.xdc | 13 個埠的腳位／LVCMOS33，100 MHz clock；無 seg |
-| sim/tb_pingpong.vhd | LED 版 T1～T9；T7 改量完整步長，新增飛離忽略、途中 reset、左方獲勝 |
-| sim/tb_btn_cond.vhd | B1～B6：短彈跳、穩定按下、長按、釋放彈跳、釋放、再次按下 |
-| scripts/simulate.py | GHDL 編譯、兩個 bench、嚴格 assert、成功標記與 timeout 檢查 |
-| scripts/create_project.tcl | 建立可搬移的 Vivado 專案，直接選 part；未在本機 Vivado 實跑 |
-| scripts/build_batch.tcl | 非專案模式建置；未在本機 Vivado 實跑 |
-| archive/lab-20261111/ | 原始位元組快照；舊七段 testbench 僅供參考 |
-| artifacts/lab-20261111/pingpong.bit | 原始成品 bitstream；非本次重新合成結果 |
-| docs/evidence/ | 去除使用者路徑／主機名的報告與重跑日誌 |
+| src/pingpong.vhd | 頂層：狀態機、事件、球位置、計時、計分與 LED 顯示 |
+| src/btn_cond.vhd | 輸入同步、去彈跳及單週期按鍵事件 |
+| constraints/pingpong.xdc | EGO-XZ7 腳位、LVCMOS33 與 100 MHz 時脈約束 |
+| sim/tb_pingpong.vhd | 遊戲自我檢查測試 T1～T9 |
+| sim/tb_btn_cond.vhd | 按鍵整理測試 B1～B6 |
+| scripts/simulate.py | 執行兩個 GHDL testbench 並檢查結果 |
+| scripts/create_project.tcl | Vivado 工程建立入口 |
+| tools/lfsr_check.py | LFSR 週期檢查 |
 
-## 4.2 設計紀律
+RTL 以實驗室成品為基準，保留既有狀態機與各暫存器的單一驅動結構。來源採 UTF-8 註解，assert 訊息使用英文以維持工具相容性。
 
-維持一個暫存器 signal 一個 process，事件使用並行組合邏輯。只用 clk 上升緣及計數 enable，不產生衍生 clock。命名與架構圖逐項對照，沒有為文件整理拆改已驗收的遊戲 RTL。
+## Vivado 建置
 
-## 4.3 執行模擬
+1. 建立 RTL Project，part 選 xc7z020clg484-1。
+2. 加入 Design Sources：src/btn_cond.vhd、src/pingpong.vhd。
+3. 加入 Constraints：constraints/pingpong.xdc。
+4. 加入 Simulation Sources：sim/ 下的兩份 testbench。
+5. 設計頂層選 pingpong；遊戲模擬頂層選 tb_pingpong。
+6. 執行 Synthesis、Implementation、Generate Bitstream。
 
-安裝 Python 3 與 GHDL，從 pingpong-led-fpga 資料夾執行：
+亦可在專案資料夾的 Tcl Console 執行 source scripts/create_project.tcl 建立工程。此工程建立腳本尚未以 Vivado 重新執行；實驗室既有工程的建置成功紀錄與此腳本分開看待。
+
+行為模擬執行 run all；按鍵獨立模擬將頂層改為 tb_btn_cond。燒錄使用 Hardware Manager 連接 JTAG、選取產生的 bitstream。板卡 JTAG 模式及電源接法應依實板標示與硬體手冊設定。
+
+## GHDL 模擬
+
+需求：Python 3、GHDL。從 pingpong-led-fpga 資料夾執行：
 
 ```sh
 python3 scripts/simulate.py
 python3 tools/lfsr_check.py
 ```
 
-Windows 可將 python3 換成已安裝 Python 3 的命令名稱。GHDL 本次使用 6.0.0 mcode；腳本的 --mb-comments 允許 UTF-8 註解，--assert-level=error 遇到錯誤即停止。完整輸出在 build/ghdl/simulation.log，波形同目錄。需兩個成功標記均出現且結束碼為 0。
+Windows 可使用對應的 Python 3 命令名稱。模擬入口使用 VHDL-93 與 --mb-comments 支援 UTF-8 註解，並設定 --assert-level=error。任一編譯錯誤、assert、逾時或缺少成功標記皆回傳非零結束碼。
 
-## 4.4 建立 Vivado 工程
-
-Vivado Tcl Console 在專案資料夾執行 source scripts/create_project.tcl；或手動建立 xc7z020clg484-1 工程，只加入 src/、constraints/pingpong.xdc 與 sim/。Design top 為 pingpong；Simulation top 為 tb_pingpong，按鍵獨立測試則選 tb_btn_cond。執行 run all，assert 設為失敗停止。
-
-勿把 archive/、實驗室 .xpr 或其快取整包加入。原 .xpr 的 zc702 board_part 不作為 EGO-XZ7 的板卡識別依據。
-
-## 4.5 本次修正與限制
-
-- 還原成品參數上限 9，取代前次整理版擴出的 15。
-- 修正 T7 從已經過一部分的 LED1 區間開始量測，改等 LED2 新區間開始後量到 LED3。
-- 加入多位元組註解選項；修正前次尚未實測的 GHDL 執行入口。
-- 新增 T8、T9 與按鍵 bench，不更改遊戲行為來配合測試。
-- 本次通過 RTL 模擬；沒有在此電腦重新跑 Vivado 合成、實作或燒錄。成品 bitstream、時序與資源報告屬 2026-11-11。
+輸出日誌與 VCD 波形位於 build/ghdl/，由 .gitignore 排除。有效結果須同時包含 ALL TESTS PASSED、ALL BUTTON TESTS PASSED，且執行結束碼為 0。
