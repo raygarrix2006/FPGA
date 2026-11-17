@@ -1,0 +1,27 @@
+# Vivado generated
+vivado_prj/
+*.jou
+*.log
+*.str
+.Xil/
+*.cache/
+*.hw/
+*.runs/
+*.sim/
+*.ip_user_files/
+*.gen/
+*.xpr
+# bitstreams
+*.bit
+*.bin
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+__pycache__/
+
+build/
+
+*.vcd
+*.ghw
+work-obj*.cf
