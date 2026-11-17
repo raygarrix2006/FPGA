@@ -1,0 +1,17 @@
+$ <workspace>\work\ghdl\bin\ghdl.EXE --version
+GHDL 6.0.0 (6.0.0.r0.ge589c698c.dirty) [Dunoon edition]
+ Compiled with GNAT Version: 15.2.0
+ static elaboration, mcode JIT code generator
+Written by Tristan Gingold.
+
+Copyright (C) 2003 - 2026 Tristan Gingold.
+GHDL is free software, covered by the GNU General Public License.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+$ <workspace>\work\ghdl\bin\ghdl.EXE -a --std=93 --mb-comments <workspace>\work\github-repo\pingpong-led-fpga\src\btn_cond.vhd <workspace>\work\github-repo\pingpong-led-fpga\src\pingpong.vhd <workspace>\work\github-repo\pingpong-led-fpga\sim\tb_pingpong.vhd
+$ <workspace>\work\ghdl\bin\ghdl.EXE -e --std=93 --mb-comments tb_pingpong
+$ <workspace>\work\ghdl\bin\ghdl.EXE -r --std=93 --mb-comments tb_pingpong --assert-level=error --stop-time=5ms --vcd=tb_pingpong.vcd
+<workspace>\work\github-repo\pingpong-led-fpga\sim\tb_pingpong.vhd:193:7:@76225ns:(report note): T7 round 1: step = 84 clk
+<workspace>\work\github-repo\pingpong-led-fpga\sim\tb_pingpong.vhd:194:7:@76225ns:(assertion failure): T7: step time out of range
+ghdl:error: assertion failed
+  instance: /tb_pingpong/p_test
+ghdl:error: simulation failed

@@ -10,8 +10,8 @@
 1. 設定 **SW8[4:2] = 000**（JTAG 配置模式，手冊表 5）。
 2. 接上 12 V 電源，撥開電源開關 S1，確認電源燈 D17 亮。
 3. 用 MicroUSB 把 J1 接到電腦。
-4. 依 `04-implementation.md` 的 4.3 節建立專案並產生 bitstream。
-5. Vivado → Open Hardware Manager → Open Target → Auto Connect → Program Device，選 `pingpong.bit`。
+4. 依 [程式實作](04-implementation.md) 的 4.4 節建立專案並產生 bitstream。
+5. Vivado → Open Hardware Manager → Open Target → Auto Connect → Program Device，可選 [實驗室原始成品](../artifacts/lab-20261111/pingpong.bit)，或自行重建的 `pingpong.bit`。
 6. 燒錄完成後 D4（Done）燈亮。
 
 > 專案只能有一個 `entity pingpong`：不要把 `archive/` 內的舊版加入專案，也不要啟用含 `seg` 的舊 XDC。
@@ -69,14 +69,6 @@
 | 往下（0） | 每一步固定 250 ms |
 | 往上（1） | 每次發球或回擊後，這一趟的速度隨機決定，預設為 150、250、350 或 450 ms 其中一種 |
 
-## 7. 疑難排解
+## 7. 驗證狀態與疑難排解
 
-| 現象 | 可能原因／處理 |
-|---|---|
-| 完全沒有 LED 反應 | 確認已燒錄、D4 亮；SW7 是否在上面 |
-| LED0 亮但球不動 | 正常，等 player1 按 BTNL 發球 |
-| 按鍵沒反應 | 確認輪到發球者；球飛離你時按鍵會被忽略 |
-| 左右玩家相反 | 對調 XDC 的 N15 與 R18 |
-| 想改分數或球速 | 見 `04-implementation.md` 的 4.4 節 |
-| Vivado Implementation 出現 `Out of memory` | 見 `05-verification.md` 5.6；原因尚未確定，可先關閉其他程式、檢查 Page File、Jobs 設為 1，或試 `scripts/build_batch.tcl`（未實測） |
-| 七段不亮 | 本專案已棄用七段，見 `05-verification.md` 5.7 |
+2026-11-11 實驗室成品已產生 bitstream，作者回報老師檢查功能正常。本次重新模擬通過。若自行重建遇 OOM，屬不同環境問題，請保留 runme.log 及工具版本；不要因此改寫已驗收的遊戲邏輯。詳細狀態、TIMING-18 與未完成測項見 [驗證文件](05-verification.md)。

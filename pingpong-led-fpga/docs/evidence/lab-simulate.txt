@@ -1,0 +1,18 @@
+Vivado Simulator 2018.3
+Time resolution is 1 ps
+Note: T7 round 1: step = 84 clk
+Time: 71895 ns  Iteration: 1  Process: /tb_pingpong/p_test  File: <user-home>/Downloads/pingpong/tb_pingpong.vhd
+Failure: T7: step time out of range
+Time: 71895 ns  Iteration: 1  Process: /tb_pingpong/p_test  File: <user-home>/Downloads/pingpong/tb_pingpong.vhd
+$finish called at time : 71895 ns : File "<user-home>/Downloads/pingpong/tb_pingpong.vhd" Line 175
+Note: T7 round 2: step = 185 clk
+Time: 88535 ns  Iteration: 1  Process: /tb_pingpong/p_test  File: <user-home>/Downloads/pingpong/tb_pingpong.vhd
+Note: T7 round 3: step = 185 clk
+Time: 111175 ns  Iteration: 1  Process: /tb_pingpong/p_test  File: <user-home>/Downloads/pingpong/tb_pingpong.vhd
+Note: T7 round 4: step = 85 clk
+Time: 132815 ns  Iteration: 1  Process: /tb_pingpong/p_test  File: <user-home>/Downloads/pingpong/tb_pingpong.vhd
+Failure: T7: step time out of range
+Time: 132815 ns  Iteration: 1  Process: /tb_pingpong/p_test  File: <user-home>/Downloads/pingpong/tb_pingpong.vhd
+$finish called at time : 132815 ns : File "<user-home>/Downloads/pingpong/tb_pingpong.vhd" Line 175
+Note: ALL TESTS PASSED
+Time: 146815 ns  Iteration: 1  Process: /tb_pingpong/p_test  File: <user-home>/Downloads/pingpong/tb_pingpong.vhd

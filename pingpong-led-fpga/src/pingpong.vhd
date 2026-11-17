@@ -1,7 +1,5 @@
 -- pingpong.vhd
 -- 乒乓球 LED（單板版）
--- [CHANGE v1.2] 七段顯示器棄用（實測無法點亮）：移除 seg 埠、SEG_ACTIVE_LOW、七段碼函式。
---               分數改用 LED 以 4 位元二進位顯示，見檔案最後的「顯示」區段。
 -- 規則：
 --   player1 = BTNL（'0'，球位置 0 端 = LED0），player2 = BTNR（'1'，球位置 7 端 = LED7）
 --   發球後才判定：球飛向接球者時按鍵 = 太早；端點 LED 那一步時間內沒按 = 太晚
@@ -15,7 +13,7 @@ use ieee.numeric_std.all;
 entity pingpong is
   generic (
     CLK_HZ         : integer := 100_000_000;
-    WIN_SCORE      : integer range 1 to 15 := 5;    -- 獲勝分數（4 位元二進位最多 15）[CHANGE]
+    WIN_SCORE      : integer range 1 to 9 := 5;     -- 獲勝分數
     RAND_BITS      : integer range 1 to 4 := 2;     -- 變速取樣的 LFSR bit 數
     CONST_STEP_MS  : integer := 250;                -- 勻速：每步時間
     STEP_MIN_MS    : integer := 150;                -- 變速：最短每步時間
@@ -46,7 +44,6 @@ architecture rtl of pingpong is
   constant SHOW_CYC       : integer := SHOW_TIME_MS  * CYC_PER_MS;
   constant DEB_CYC        : integer := DEBOUNCE_MS   * CYC_PER_MS;
   constant STEP_MAX_CYC   : integer := STEP_MIN_CYC + (2**RAND_BITS - 1) * STEP_UNIT_CYC;
-  constant HALF_SHOW_CYC  : integer := SHOW_CYC / 2;   -- [CHANGE] 得分顯示：前半亮、後半滅
 
   ---------------------------------------------------------------------------
   -- 型別
@@ -94,12 +91,12 @@ architecture rtl of pingpong is
   signal ev_move    : std_logic;
   signal game_won   : std_logic;
   signal ball_leds  : std_logic_vector(7 downto 0);
-  signal score_bits : unsigned(3 downto 0);            -- [CHANGE] 得分者的分數
-  signal score_leds : std_logic_vector(7 downto 0);    -- [CHANGE] 二進位顯示用 LED
+  signal score_bits : unsigned(3 downto 0);
+  signal score_leds : std_logic_vector(7 downto 0);
 
 begin
 
-  -- 參數檢查（編譯 / 合成時就會報錯，避免默默出錯）；訊息用英文，因為字串常值只保證支援 Latin-1
+  -- 參數檢查（編譯 / 合成時就會報錯，避免默默出錯）
   assert STEP_MAX_CYC < 2**CNT_W and SHOW_CYC < 2**CNT_W
     report "Time parameters exceed the CNT_W counter width" severity failure;
   assert STEP_MIN_CYC >= 2 and CONST_STEP_CYC >= 2
@@ -321,23 +318,21 @@ begin
     ball_leds(i) <= '1' when to_integer(pos) = i else '0';
   end generate gen_ball;
 
-  -- [CHANGE v1.2] 得分者的 4 位元二進位分數
-  --   player1：LED0 = MSB ... LED3 = LSB；player2：LED4 = MSB ... LED7 = LSB
-  --   另一半邊熄滅
+  -- 得分者的 4-bit 二進位分數（LED0/LED4 為 MSB，LED3/LED7 為 LSB）
   score_bits <= to_unsigned(score_l, 4) when last_scorer = '0' else
                 to_unsigned(score_r, 4);
 
   gen_score : for i in 0 to 3 generate
-    score_leds(i)     <= score_bits(3 - i) when last_scorer = '0' else '0';
-    score_leds(i + 4) <= score_bits(3 - i) when last_scorer = '1' else '0';
+    score_leds(i)   <= score_bits(3 - i) when last_scorer = '0' else '0';
+    score_leds(i+4) <= score_bits(3 - i) when last_scorer = '1' else '0';
   end generate gen_score;
 
-  -- 得分（S_POINT）：前半段顯示二進位、後半段熄滅，共一個明暗週期
-  -- 勝利（S_GAME_OVER）：勝方四顆 LED 恆亮（不顯示二進位），直到 reset
-  -- 其餘狀態：球位置
+  -- 得分：前半段顯示二進位、後半段熄滅（閃爍一次）
+  -- 勝利：維持原本獲勝方四顆 LED 恆亮
+  -- 其餘狀態：維持原本的球位置顯示
   led <= "00001111" when state = S_GAME_OVER and last_scorer = '0' else
          "11110000" when state = S_GAME_OVER and last_scorer = '1' else
-         score_leds when state = S_POINT and cnt < to_unsigned(HALF_SHOW_CYC, CNT_W) else
+         score_leds when state = S_POINT and cnt < to_unsigned(SHOW_CYC / 2, CNT_W) else
          "00000000" when state = S_POINT else
          ball_leds;
 

@@ -1,128 +1,67 @@
-# 乒乓球 LED（Ping-Pong LED）— EGO-XZ7 / Zynq-7020 / VHDL
+# FPGA 乒乓球 LED — EGO-XZ7 / VHDL
 
-> **閱讀起點**：[五階段總覽](docs/README.md) → [需求追溯表](docs/traceability.md) → [目前狀態與待辦](docs/project-status.md)。
-> 本專案位於 [FPGA 儲存庫的 pingpong-led-fpga 子資料夾](https://github.com/raygarrix2006/FPGA/tree/main/pingpong-led-fpga)，與既有 hw2 作業分開。
-> **v1.2 尚無成功模擬、bitstream 或上板結果。** 歷史波形屬 v1.0，不能作為新版通過的證據。
+兩位玩家用 BTNL／BTNR 對打，以 LED0～LED7 表示球的位置；每回合以得分者半邊的四顆 LED 顯示二進位分數。先得 5 分獲勝，勝方半邊恆亮；七段不使用。
 
+**目前基準：2026-11-11 實驗室成品。** 作者回報已交老師檢查、功能正常；壓縮包有成功 bitstream 與建置報告。本次修正測試後，GHDL 模擬 T1～T9、B1～B6 通過。
 
-用一排 LED 當球、兩個按鍵當球拍的雙人乒乓球遊戲。在 E-Elements **EGO-XZ7**（Zynq XC7Z020-CLG484）的 PL 端以 **VHDL** 實作，使用 Vivado 開發。
+[五階段總覽](docs/README.md) · [需求追溯](docs/traceability.md) · [架構圖](docs/03-design.md) · [驗證證據與限制](docs/05-verification.md) · [操作說明](docs/user-guide.md)
 
-這是一份數位設計／FPGA 課程作業，也是一次完整走過**軟體開發五個週期**的練習：**需求 → 分析 → 設計 → 程式 → 驗證**，每一階段都有對應文件。
+## 五階段開發文件
 
-## 遊戲玩法（一分鐘版）
-
-- 兩位玩家：player1 按 **BTNL**，player2 按 **BTNR**。
-- LED0–LED7 是球道，球從發球者那端飛向對面。
-- 球到端點 LED 時，接球者要在那一段時間內按鍵回擊，球就反向飛回。
-- **太晚**（時間到沒按）或**太早**（球還在飛向你就按）都算失分，對手得 1 分。
-- 得分者發球；先得 5 分獲勝。
-- **得分顯示**：得分者那半邊用 **4 位元二進位**顯示分數（player1：LED0 最高位元；player2：LED4 最高位元），亮半秒、熄半秒。
-- **獲勝**：勝方那半邊四顆 LED 恆亮，直到 reset。
-- **SW0**：勻速／隨機變速；**SW7**：往上運作、往下 reset。
-
-完整操作請看 [使用說明](docs/user-guide.md)。
-
-## 專案狀態
-
-| 項目 | 狀態 |
+| 階段 | 文件與產出 |
 |---|---|
-| 五階段文件 | 已整理；驗證計畫已寫，驗證執行仍有待完成項目 |
-| v1.0（七段顯示版）Vivado 模擬 | 完整跑完（波形見 `docs/images`）；Console 輸出未取得 |
-| v1.0 上板 | 球、按鍵、reset、5 分獲勝（勝方四顆 LED 恆亮）運作；**七段顯示器不亮** |
-| **v1.2（目前版本，LED 二進位計分）編譯與模擬** | **尚未執行** |
-| v1.2 Implementation | **失敗：Vivado 2018.3 `Out of memory`**（原因未定，見驗證文件 5.6） |
-| v1.2 上板 | **尚未執行** |
+| 1. 需求 | [規則、範圍與驗收](docs/01-requirements.md) |
+| 2. 分析 | [硬體、事件、時間、風險](docs/02-analysis.md) |
+| 3. 設計 | [成品架構、FSM、訊號與二進位對照](docs/03-design.md) |
+| 4. 程式實作 | [來源、工程重建與修改說明](docs/04-implementation.md) |
+| 5. 驗證 | [模擬、建置、時序與實機回報](docs/05-verification.md) |
 
-七段顯示器實測無法點亮（含獨立測試設計），已決定**棄用**，改用 LED 顯示分數。詳見 [驗證文件 5.7](docs/05-verification.md)。
+## 目前驗證狀態
 
-## 開發文件（五個週期）
+| 項目 | 結果 |
+|---|---|
+| 實驗室合成／實作／bitstream | 包內日誌證實成功；成品 4,045,668 bytes |
+| 本次 RTL 模擬 | T1～T9、按鍵 B1～B6 通過，GHDL 6.0.0 mcode |
+| LFSR | Python 重新驗證週期 255 |
+| 實驗室時序 | WNS 2.690 ns、WHS 0.180 ns；已設定約束均滿足 |
+| 待處理限制 | 12 個 TIMING-18（I/O delay 缺失）、1 個 ZPS7-1（PS7 block required）；精準對拍與變速完整覆蓋待補 |
+| 實機驗收 | 作者回報老師已檢查、正常；未提供逐項簽核／影片 |
 
-| 階段 | 文件 | 內容 |
-|---|---|---|
-| 1. 需求 | [docs/01-requirements.md](docs/01-requirements.md) | 白板需求轉錄、功能／非功能需求、決策與變更紀錄 |
-| 2. 分析 | [docs/02-analysis.md](docs/02-analysis.md) | 硬體資源、狀態與事件、時間與亂數分析、風險 |
-| 3. 設計 | [docs/03-design.md](docs/03-design.md) | 架構圖、參數、腳位、訊號、更新規則、設計決策 |
-| 4. 程式 | [docs/04-implementation.md](docs/04-implementation.md) | 檔案、寫法規範、建置、修改指引 |
-| 5. 驗證 | [docs/05-verification.md](docs/05-verification.md) | 測試計畫、結果、需求追溯、已知問題 |
-| 使用說明 | [docs/user-guide.md](docs/user-guide.md) | 燒錄、操作、LED 意義、疑難排解 |
+本次沒有重新跑 Vivado 或燒錄。成功建置屬實驗室紀錄，不表示家用環境先前 Out of memory 根因已解決。舊模擬日誌曾同時有 failure 與成功字樣，已在驗證文件更正解讀。
 
 ## 專案結構
 
-```
-.
+```text
+pingpong-led-fpga/
 ├── README.md
-├── CHANGELOG.md
-├── src/
-│   ├── pingpong.vhd          # 頂層：FSM、計時、計分、LFSR、顯示
-│   └── btn_cond.vhd          # 輸入整理：同步、去彈跳、邊緣脈波
-├── sim/
-│   └── tb_pingpong.vhd       # 自我檢查 testbench（T1–T7）
-├── constraints/
-│   └── pingpong.xdc          # EGO-XZ7 腳位與時脈（不含七段）
-├── docs/                     # 五階段文件、使用說明、圖片
-├── scripts/
-│   ├── create_project.tcl    # 建立 Vivado 專案（未實際執行過）
-│   └── build_batch.tcl       # 批次建置（未實際執行過）
-├── tools/
-│   └── lfsr_check.py         # 驗證 LFSR 週期為 255
-└── archive/                  # 歷史資料，不要加入專案
-    ├── pingpong_7seg_v1.0.vhd
-    └── seg_test/
+├── src/                         # 成品 RTL，UTF-8
+├── constraints/pingpong.xdc      # 成品腳位，無七段
+├── sim/                         # 遊戲與按鍵兩個自我檢查 bench
+├── docs/                        # 五階段、追溯、操作及證據
+├── scripts/                     # Vivado 工程與 GHDL 模擬入口
+├── tools/lfsr_check.py
+├── artifacts/lab-20261111/       # 原始成品 bitstream
+└── archive/                     # 原始 CP950 快照及七段歷史，勿加入工程
 ```
 
-## 快速開始
+## 建置與操作
 
-1. 建立 Vivado 專案，Part 選 `xc7z020clg484-1`，加入 `src/*.vhd`、`sim/tb_pingpong.vhd`、`constraints/pingpong.xdc`，頂層設為 `pingpong`。
-   （也可嘗試 `source scripts/create_project.tcl`，該腳本未實際執行過。）
-2. 模擬：頂層選 `tb_pingpong`，`run all`，看 Console 是否出現 `ALL TESTS PASSED`。
-3. 上板：SW8[4:2] 設為 `000`（JTAG），產生 bitstream 後燒錄。
+目標 part：xc7z020clg484-1，100 MHz。Vivado 直接選 part 建立工程，加入 src/、constraints/ 與 sim/；不要匯入 archive/。詳細步驟在第 4 階段。
 
-細節見 [使用說明](docs/user-guide.md) 與 [程式文件](docs/04-implementation.md)。
-
-## 設計重點
-
-- 單一 100 MHz clock 的同步設計，不產生衍生 clock。
-- **一個 signal 一個 process**；事件（`ev_*`）由組合邏輯產生，各暫存器只看事件更新。
-- 時間、分數、亂數 bit 數都是 `generic`，改一處即可。
-- 隨機變速用 8 bit **LFSR**（週期 255，已用 Python 驗證），只在發球／有效回擊時取樣。
-- 所有按鍵與開關都經過 2 級同步器、去彈跳與邊緣偵測。
-
-## 硬體與環境
-
-- 開發板：E-Elements EGO-XZ7（板上標示 Ver.B），Zynq XC7Z020-CLG484-1
-- 資源：100 MHz PL 時脈（Y9）、8 顆 LED、8 個撥動開關、5 個按鍵
-- 腳位來源：*EGO-XZ7 硬體手冊 V1.2*（E-Elements，2017/3/25）表 2、表 15
-- IO 標準 LVCMOS33 為課程板子的慣例（手冊未記載）
-- 作者環境：Vivado 2018.3、Windows、8 GB RAM
-
-## 已知問題
-
-- **Vivado 2018.3 Implementation 發生 `Out of memory`**，尚未取得 v1.2 的 bitstream。原因未確定，見 [驗證文件 5.6](docs/05-verification.md)。
-- **七段顯示器棄用**：實板有兩顆七段（D9、D1），手冊只記載一顆，實測無法點亮。
-- BTNL／BTNR 的實體位置為依手冊與照片推論，需以實測為準。
-- 變速最快 150 ms，回擊窗口可能偏短，需上板調整參數。
-- v1.2 尚未經過編譯與模擬。
-
-## 後續方向
-
-依課堂白板：**VGA 版本**，以及**兩塊以上板子互打**。這些不在本專案範圍內。
-
-## 作者與授權
-
-- 維護帳號：[raygarrix2006](https://github.com/raygarrix2006)；作者、課程與學期尚未提供，未代填。
-- 尚未選定開源授權；公開原始碼不等於已授予開源授權。
-
-## 本次整理與可重現檢查
-
-本次僅整理文件、公開資料範圍與執行入口；現行 RTL、XDC 和 testbench 保持交接版本。
-
-在此專案資料夾執行：
+在本專案資料夾、具 Python 3 與 GHDL 的環境執行：
 
 ```sh
-python3 tools/lfsr_check.py
 python3 scripts/simulate.py
+python3 tools/lfsr_check.py
 ```
 
-Windows 可使用已安裝的 Python 3 執行上述檔案。第二項另需 GHDL；會明確檢查結束碼與 `ALL TESTS PASSED`，結果寫入 `build/ghdl/simulation.log`。本次環境未找到 GHDL，這個新入口尚未實跑，不代表測試已通過。Vivado 流程仍以 [第 4 階段](docs/04-implementation.md) 為準。
+結果／波形在 build/ghdl/。燒錄可使用 [實驗室 bitstream](artifacts/lab-20261111/pingpong.bit)，先核對 [原始雜湊](docs/evidence/lab-original.sha256)。SW7 低為 reset、高為運作；SW0 為勻速／變速。發球後才移動，太早或太晚回擊讓對手得分。
 
-資料來源與公開範圍見 [來源說明](docs/sources-and-publication.md)。
+player1 分數使用 LED0～3（LED0 為 MSB），player2 使用 LED4～7（LED4 為 MSB）；這是 LED 編號順序，不是文字字串的左右位置。前半秒顯示、後半秒熄滅，第 5 分後勝方四顆恆亮。WIN_SCORE 成品範圍為 1..9，預設 5。
+
+## 來源與授權
+
+來源為作者上傳的實驗室包、先前交接包及 ChatGPT 對話〈七段顯示器排查〉。技術結論以原始碼、報告、重跑及明確回報分層核對，見 [來源與公開範圍](docs/sources-and-publication.md)。
+
+維護帳號：[raygarrix2006](https://github.com/raygarrix2006)。作者姓名、課程、學期未提供；尚未選定開源授權。廠商手冊、人物照片、使用者路徑／主機名等未整包公開。
+

@@ -1,0 +1,4 @@
+PASS: current RTL equals lab source after declared encoding/assert-text conversion
+PASS: XDC and bitstream equal lab originals; all 13 pins match placed I/O report
+PASS: source hashes; Markdown links; Python syntax; public text privacy scan
+PASS: GHDL T1-T9 and B1-B6 logs contain success markers and no assertion failure

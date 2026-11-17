@@ -175,7 +175,7 @@ begin
     assert led = "11110000" report "T6: buttons must be ignored in game over" severity failure;
 
     -------------------------------------------------------------------
-    -- T7：reset 後切變速，量發球後 LED1 -> LED2 的 clock 數是否在範圍內
+    -- T7：reset 後切變速，等待 LED2 新區間開始，再量 LED2 -> LED3 的完整步長
     -------------------------------------------------------------------
     rst_n <= '0';
     wait for 50 * T_CLK;
@@ -185,8 +185,9 @@ begin
     for r in 1 to 4 loop
       press(btn_l);
       wait_led("00000010", 100, "T7 serve");
+      wait_led("00000100", STEP_MAX_CYC + 50, "T7 start a complete LED2 interval");
       n := 0;
-      while led /= "00000100" and n <= STEP_MAX_CYC + 50 loop
+      while led /= "00001000" and n <= STEP_MAX_CYC + 50 loop
         wait until rising_edge(clk);
         n := n + 1;
       end loop;
@@ -200,6 +201,38 @@ begin
       wait_led("00000000", 400, "T7 blink-off phase");
       wait_led("00000001", 800, "T7 wait serve (player1)");
     end loop;
+
+    -- T8: ignore the sender while the ball flies away; reset during flight.
+    rst_n <= '0'; mode_sw <= '0';
+    wait for 60 * T_CLK;
+    rst_n <= '1'; wait for 60 * T_CLK;
+    press(btn_l);
+    press(btn_l);
+    assert led = "00000010" report "T8: sender press during flight must be ignored" severity failure;
+    wait_led("00000100", 250, "T8 flight continues");
+    rst_n <= '0'; wait for 60 * T_CLK;
+    assert led = "00000001" report "T8: reset during flight" severity failure;
+    wait for 300 * T_CLK;
+    assert led = "00000001" report "T8: reset must hold the game" severity failure;
+    rst_n <= '1'; wait for 60 * T_CLK;
+    report "T8 PASSED";
+
+    -- T9: player1 binary scores and left-side game over.
+    for k in 1 to 5 loop
+      press(btn_l);
+      wait_led("00000010", 100, "T9 serve");
+      press(btn_r);
+      assert led = bin_p1(k) report "T9: wrong player1 binary score" severity failure;
+      wait_led("00000000", 400, "T9 off phase");
+      if k < 5 then
+        wait_led("00000001", 800, "T9 player1 serves again");
+      end if;
+    end loop;
+    wait_led("00001111", 400, "T9 player1 wins");
+    press(btn_l); press(btn_r);
+    wait for 1000 * T_CLK;
+    assert led = "00001111" report "T9: left winner must stay lit" severity failure;
+    report "T9 PASSED";
 
     report "ALL TESTS PASSED";
     done <= true;

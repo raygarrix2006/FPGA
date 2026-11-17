@@ -23,3 +23,13 @@
 - 原始交接文件與另一段對話交接目錄：保留供追溯，未整包公開。技術決策已整理進五階段文件。
 
 本次不增加開源 LICENSE，也不推定原作者姓名、課程或學期。
+
+## 2026-11-17 實驗室成品查核
+
+新增來源 pingpong_20261111.7z，SHA-256：390d8a08ea7cf2d556cd16b9f519370b85882310d6727123861c29a25b3411cc。
+
+本次實際讀取 RTL、XDC、xpr、simulator 日誌、Implementation 日誌、routed 時序／DRC／methodology 與 placed 利用率報告，檢查 bitstream header 和 SHA-256，並以 [官方 GHDL 6.0.0](https://github.com/ghdl/ghdl/releases/tag/v6.0.0)重新模擬。多位元組註解選項依 [GHDL 官方文件](https://ghdl.github.io/ghdl/using/InvokingGHDL.html)。
+
+原始工程包含個人路徑、主機名、工具快取及過時的七段 testbench，不整包公開。公開報告副本將使用者家目錄改為 <user-home>、本次工作目錄改為 <workspace>，移除 Host 行；原始內容仍保留本地。原 RTL／XDC／舊測試快照與成品 bitstream 則用雜湊追溯。src/ 轉 UTF-8 及英文 assert 訊息，邏輯不變。
+
+硬體腳位由成品 XDC 與 placed I/O 報告交叉核對。手冊頁碼仍沿用交接引用，本次未重新逐頁查證；七段根因未確定。

@@ -13,35 +13,41 @@
 ## 3.2 架構
 
 ```mermaid
-flowchart LR
-    subgraph IN["輸入整理 btn_cond x4"]
-        U1["u_rst"]
-        U2["u_mode"]
-        U3["u_btnl"]
-        U4["u_btnr"]
-    end
-    RST["rst_n (SW7)"] --> U1 --> RSTS["rst_n_s"]
-    MODE["mode_sw (SW0)"] --> U2 --> MODES["mode_s"]
-    BL["btn_l"] --> U3 --> HL["hit_l"]
-    BR["btn_r"] --> U4 --> HR["hit_r"]
-    HL --> EV
-    HR --> EV
-    EV["事件組合邏輯 ev_*"] --> FSM["p_state"]
-    EV --> CNT["p_cnt / tick"]
-    EV --> POS["p_pos"]
-    EV --> DIR["p_dir"]
-    EV --> SC["p_last_scorer / p_score_l / p_score_r"]
-    EV --> SPD["p_step_upbnd"]
-    LFSR["p_lfsr"] --> SPD
-    MODES --> SPD
-    SPD --> CNT
-    FSM --> EV
-    CNT --> EV
-    POS --> LEDS["LED 顯示"]
-    SC --> LEDS
-    FSM --> LEDS
-    LEDS --> LED["led[7:0]"]
+flowchart TB
+    EXT["SW7 / SW0 / BTNL / BTNR"] --> INPUT["btn_cond x4：同步、去彈跳、邊緣偵測"]
+    INPUT --> EV["事件：ev_serve / ev_early / ev_return / ev_late / ev_step"]
+    INPUT --> RESET["rst_n_s：各暫存器同步重置"]
+    INPUT --> SPEED["p_step_upbnd：發球或有效回擊時鎖存速度"]
+    RNG["p_lfsr：8-bit 自由運轉"] --> SPEED
+    SPEED --> TIMER["p_cnt：共用 27-bit 計數器 / tick"]
+    TIMER --> EV
+    FSM["p_state：五狀態 FSM"] --> EV
+    EV --> FSM
+    EV --> TIMER
+    EV --> BALL["p_pos / p_dir：球位置與方向"]
+    BALL --> EV
+    EV --> SCORE["p_score_l / p_score_r / p_last_scorer"]
+    SCORE --> EV
+    SCORE --> WON["game_won"] --> FSM
+    BALL --> BALLLED["gen_ball：單顆球燈"]
+    SCORE --> BIN["score_bits / gen_score：得分者半邊二進位"]
+    TIMER --> MUX["led 顯示選擇：球 / 分數 / 全暗 / 勝方恆亮"]
+    FSM --> MUX
+    SCORE --> MUX
+    BIN --> MUX
+    BALLLED --> MUX
+    MUX --> LED["LED0..LED7"]
+    CLK["共同 clk = 100 MHz"] -.-> INPUT
+    CLK -.-> FSM
+    CLK -.-> TIMER
+    CLK -.-> BALL
+    CLK -.-> SCORE
+    CLK -.-> RNG
+    CLK -.-> SPEED
 ```
+
+圖按實驗室成品原始碼重新核對。每個框可能包含數個獨立 process；例如 p_score_l 與 p_score_r 分別驅動各自分數。rst_n_s 重置主遊戲暫存器；btn_cond 自身以初值啟動，不受 rst_n_s 回授重置。
+
 
 | 模組 | 檔案 | 功能 |
 |---|---|---|
@@ -53,7 +59,7 @@ flowchart LR
 | 名稱 | 預設 | 範圍 | 說明 |
 |---|---|---|---|
 | `CLK_HZ` | 100,000,000 | | 時脈頻率 |
-| `WIN_SCORE` | 5 | 1..15 | 獲勝分數（4 位元二進位最多 15；實測只用 5） |
+| `WIN_SCORE` | 5 | 1..9 | 獲勝分數（4 位元二進位最多 15，但本成品參數限制為 9；預設 5） |
 | `RAND_BITS` | 2 | 1..4 | 變速時取樣的 LFSR bit 數，亂數範圍 0..2^RAND_BITS-1 |
 | `CONST_STEP_MS` | 250 | | 勻速每步時間 |
 | `STEP_MIN_MS` | 150 | | 變速最短每步時間 |
@@ -186,8 +192,17 @@ flowchart LR
 | FR-05 | `ev_late` |
 | FR-06 | `ev_early`、`rx_hit` 只看接球者 |
 | FR-07 | `game_won`、`S_GAME_OVER`、`led` 的勝方恆亮 |
-| FR-08 | `score_bits`、`score_leds`、`led`（比較 `cnt` 與 `HALF_SHOW_CYC`） |
+| FR-08 | `score_bits`、`score_leds`、`led`（比較 `cnt` 與 `(SHOW_CYC / 2)`） |
 | FR-09 | `lfsr`、`p_step_upbnd`、`mode_s` |
-| FR-10 | `rst_n_s`（所有 process 的同步 reset） |
+| FR-10 | `rst_n_s`（主遊戲暫存器的同步 reset） |
 | FR-11 | `btn_cond` |
 | NFR-01..03 | 3.1、3.3、3.6 |
+
+## 3.11 實驗室基準與顯示方向
+
+目前 src/ 與 2026-11-11 成品的邏輯一致。原始 CP950 快照在 archive/lab-20261111；公開工作來源轉為 UTF-8，兩個 assert 文字改為英文。沒有新增 HALF_SHOW_CYC，亮暗直接使用 SHOW_CYC / 2。
+
+以板上 LED0 在下、LED7 在上的既有照片方向，player1 使用 LED0～3 的下半部，player2 使用 LED4～7 的上半部。最高位元分別為 LED0、LED4，不能把 led(7 downto 0) 字串的左右當作實體方向。例：player1 得 1 分是 LED3 亮；player2 得 1 分是 LED7 亮。此分配由 gen_score 與 XDC 核對，整體操作正常由作者回報。
+
+七段不在此架構中。其歷史調查沒有足夠量測可判定根因。
+

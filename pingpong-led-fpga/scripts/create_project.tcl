@@ -7,6 +7,7 @@ create_project pingpong_prj $repo/vivado_prj -part xc7z020clg484-1 -force
 
 add_files [list $repo/src/btn_cond.vhd $repo/src/pingpong.vhd]
 add_files -fileset sim_1     $repo/sim/tb_pingpong.vhd
+add_files -fileset sim_1     $repo/sim/tb_btn_cond.vhd
 add_files -fileset constrs_1 $repo/constraints/pingpong.xdc
 
 set_property top pingpong    [get_filesets sources_1]

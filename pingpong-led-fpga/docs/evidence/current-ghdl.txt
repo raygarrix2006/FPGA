@@ -1,0 +1,22 @@
+$ ghdl --version
+GHDL 6.0.0 (6.0.0.r0.ge589c698c.dirty) [Dunoon edition]
+ Compiled with GNAT Version: 15.2.0
+ static elaboration, mcode JIT code generator
+Written by Tristan Gingold.
+
+Copyright (C) 2003 - 2026 Tristan Gingold.
+GHDL is free software, covered by the GNU General Public License.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+$ ghdl -a --std=93 --mb-comments --workdir=build/ghdl src/btn_cond.vhd src/pingpong.vhd sim/tb_pingpong.vhd sim/tb_btn_cond.vhd
+$ ghdl -e --std=93 --mb-comments --workdir=build/ghdl tb_pingpong
+$ ghdl -r --std=93 --mb-comments --workdir=build/ghdl tb_pingpong --assert-level=error --stop-time=5ms --vcd=build/ghdl/tb_pingpong.vcd
+sim/tb_pingpong.vhd:194:7:@77725ns:(report note): T7 round 1: step = 150 clk
+sim/tb_pingpong.vhd:194:7:@95365ns:(report note): T7 round 2: step = 250 clk
+sim/tb_pingpong.vhd:194:7:@118005ns:(report note): T7 round 3: step = 250 clk
+sim/tb_pingpong.vhd:194:7:@138645ns:(report note): T7 round 4: step = 150 clk
+sim/tb_pingpong.vhd:218:5:@158675ns:(report note): T8 PASSED
+sim/tb_pingpong.vhd:235:5:@199925ns:(report note): T9 PASSED
+sim/tb_pingpong.vhd:237:5:@199925ns:(report note): ALL TESTS PASSED
+$ ghdl -e --std=93 --mb-comments --workdir=build/ghdl tb_btn_cond
+$ ghdl -r --std=93 --mb-comments --workdir=build/ghdl tb_btn_cond --assert-level=error --stop-time=5ms --vcd=build/ghdl/tb_btn_cond.vcd
+sim/tb_btn_cond.vhd:38:5:@1300ns:(report note): ALL BUTTON TESTS PASSED

@@ -1,8 +1,5 @@
-# pingpong.xdc  (EGO-XZ7, XC7Z020-CLG484)
-# Pins: EGO-XZ7 hardware manual V1.2, Table 2 and Table 15
-# IOSTANDARD: LVCMOS33 (provided by the user: course boards use LVCMOS33 for all IO)
-# Seven-segment pins are intentionally NOT used (see docs/05-verification.md, section 5.6)
-# ASCII-only comments on purpose, to avoid encoding problems in Vivado
+# pingpong_led_binary.xdc (EGO-XZ7, XC7Z020-CLG484)
+# Seven-segment constraints removed; game uses LED0..LED7 only.
 
 # ---- 100 MHz PL clock (GCLK = Y9) ----
 set_property PACKAGE_PIN Y9 [get_ports clk]
