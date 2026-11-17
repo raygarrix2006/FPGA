@@ -2,8 +2,6 @@
 
 兩位玩家用 BTNL／BTNR 對打，以 LED0～LED7 表示球的位置；每回合以得分者半邊的四顆 LED 顯示二進位分數。先得 5 分獲勝，勝方半邊恆亮；七段不使用。
 
-**目前基準：2026-11-11 實驗室成品。** 作者回報已交老師檢查、功能正常；壓縮包有成功 bitstream 與建置報告。本次修正測試後，GHDL 模擬 T1～T9、B1～B6 通過。
-
 [五階段總覽](docs/README.md) · [需求追溯](docs/traceability.md) · [架構圖](docs/03-design.md) · [驗證證據與限制](docs/05-verification.md) · [操作說明](docs/user-guide.md)
 
 ## 五階段開發文件
@@ -27,7 +25,6 @@
 | 待處理限制 | 12 個 TIMING-18（I/O delay 缺失）、1 個 ZPS7-1（PS7 block required）；精準對拍與變速完整覆蓋待補 |
 | 實機驗收 | 作者回報老師已檢查、正常；未提供逐項簽核／影片 |
 
-本次沒有重新跑 Vivado 或燒錄。成功建置屬實驗室紀錄，不表示家用環境先前 Out of memory 根因已解決。舊模擬日誌曾同時有 failure 與成功字樣，已在驗證文件更正解讀。
 
 ## 專案結構
 
@@ -61,7 +58,7 @@ player1 分數使用 LED0～3（LED0 為 MSB），player2 使用 LED4～7（LED4
 
 ## 來源與授權
 
-來源為作者上傳的實驗室包、先前交接包及 ChatGPT 對話〈七段顯示器排查〉。技術結論以原始碼、報告、重跑及明確回報分層核對，見 [來源與公開範圍](docs/sources-and-publication.md)。
+技術結論以原始碼、報告、重跑及明確回報分層核對，見 [來源與公開範圍](docs/sources-and-publication.md)。
 
-維護帳號：[raygarrix2006](https://github.com/raygarrix2006)。作者姓名、課程、學期未提供；尚未選定開源授權。廠商手冊、人物照片、使用者路徑／主機名等未整包公開。
+維護帳號：[raygarrix2006](https://github.com/raygarrix2006)
 
